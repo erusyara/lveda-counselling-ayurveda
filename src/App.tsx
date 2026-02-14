@@ -273,7 +273,7 @@ const App: React.FC = () => {
     }
 
     if (current.type === 'multi' || current.type === 'multi_none_exclusive') {
-      const arr = Array.isArray(answers[current.key]) ? answers[current.key] : []
+      const arr: string[] = Array.isArray(answers[current.key]) ? (answers[current.key] as string[]) : []
       return (
         <div className="options">
           {current.options?.map(opt => {
@@ -291,10 +291,10 @@ const App: React.FC = () => {
                     if (e.target.checked) {
                       const next = current.type === 'multi_none_exclusive' && opt === '特になし'
                         ? ['特になし']
-                        : [...arr.filter(v => v !== '特になし'), opt]
+                        : [...arr.filter((v: string) => v !== '特になし'), opt]
                       setAnswer(current.key, Array.from(new Set(next)))
                     } else {
-                      setAnswer(current.key, arr.filter(v => v !== opt))
+                      setAnswer(current.key, arr.filter((v: string) => v !== opt))
                     }
                   }}
                 />
