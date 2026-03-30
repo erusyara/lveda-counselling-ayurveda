@@ -1,6 +1,17 @@
 steps:
   - name: gcr.io/cloud-builders/docker
     args: ["build", "-t", "asia-northeast1-docker.pkg.dev/$PROJECT_ID/lveda-counselling-ayurveda/app:$SHORT_SHA", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "asia-northeast1-docker.pkg.dev/$PROJECT_ID/lveda-counselling-ayurveda/app:$SHORT_SHA"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - lveda-counselling-ayurveda
+      - --image=asia-northeast1-docker.pkg.dev/$PROJECT_ID/lveda-counselling-ayurveda/app:$SHORT_SHA
+      - --region=asia-northeast1
+      - --platform=managed
 images:
   - "asia-northeast1-docker.pkg.dev/$PROJECT_ID/lveda-counselling-ayurveda/app:$SHORT_SHA"
 options:
