@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { detectLang, getTranslations, buildOptionReverseMap, type Lang } from './i18n'
 
 const API_PATH = '/api/submit'
 
@@ -12,38 +13,38 @@ type StepType =
 
 type Step = {
   key: string
-  label: string
-  title: string
-  desc?: string
   type: StepType
-  options?: string[]
   min?: number
   max?: number
-  placeholder?: string
 }
 
+/**
+ * Steps structure (language-independent).
+ * Labels, titles, descriptions, options, placeholders are all in i18n.ts
+ */
 const steps: Step[] = [
-  { key: 'last_name', label: '姓', title: 'Q1. 姓', desc: '姓を入力してください。', type: 'text', placeholder: '例：山田' },
-  { key: 'first_name', label: '名', title: 'Q2. 名', desc: '名を入力してください。', type: 'text', placeholder: '例：太郎' },
-  { key: 'last_name_kana', label: '姓カナ', title: 'Q3. 姓カナ', desc: 'カタカナで入力してください。', type: 'text', placeholder: '例：ヤマダ' },
-  { key: 'first_name_kana', label: '名カナ', title: 'Q4. 名カナ', desc: 'カタカナで入力してください。', type: 'text', placeholder: '例：タロウ' },
-  { key: 'email', label: 'メールアドレス', title: 'Q5. メールアドレス', desc: '連絡先のメールアドレスを入力してください。', type: 'text', placeholder: '例：example@lveda.jp' },
-  { key: 'vitality_1_10', label: '活力レベル（1〜10）', title: 'Q6. 活力レベル（1〜10）', desc: '1が最も低く、10が最も高い状態です。', type: 'number', min: 1, max: 10, placeholder: '例：7' },
-  { key: 'digestive_rhythm', label: '消化リズム（過去48時間）', title: 'Q7. 過去48時間の消化リズム', desc: '最も近いものを1つ選択してください。', type: 'single', options: ['重い', '不規則', '鋭い', '安定'] },
-  { key: 'sleep_quality', label: '睡眠の状態', title: 'Q8. 睡眠の状態', desc: '複数選択可（最低1つ選択）。', type: 'multi', options: ['寝つきが悪い', '夜中に起きる', '起きてもスッキリしない', 'よく眠れた'] },
-  { key: 'tension_areas', label: '張り・緊張がある部位', title: 'Q9. 張り・緊張がある部位', desc: '複数選択可（最低1つ選択）。', type: 'multi', options: ['首', '肩', '腰（下背部）', 'あご', '目', '股関節', 'その他'] },
-  { key: 'skin_condition', label: '肌の状態', title: 'Q10. 肌の状態', desc: '最も近いものを1つ選択してください。', type: 'single', options: ['乾燥', '熱っぽい／敏感', '脂っぽい', 'バランス良い'] },
-  { key: 'mental_state', label: '現在のメンタル状態', title: 'Q11. 現在のメンタル状態', desc: '最も近いものを1つ選択してください。', type: 'single', options: ['風（Vata）— 落ち着かない／不安', '火（Pitta）— 集中／イライラ', '霧（Kapha）— 重い／やる気が出ない'] },
-  { key: 'sensory_sensitivity', label: '刺激に弱い（敏感な）もの', title: 'Q12. 刺激に弱い（敏感な）もの', desc: '複数選択可（最低1つ選択）。「特になし」を選ぶ場合はそれ単独にしてください。', type: 'multi_none_exclusive', options: ['音', '光', '温度', '圧の強さ（タッチ）', '特になし'] },
-  { key: 'let_go_text', label: '手放したいこと', title: 'Q13. 手放したいこと（軽くしたいこと）', desc: '短くても大丈夫です。自由にご記入ください。', type: 'text', placeholder: '例：仕事の緊張、頭の中のモヤモヤ など' },
-  { key: 'invite_in', label: 'セッション後どう感じたいか', title: 'Q14. セッション後、どう感じたいですか？', desc: '複数選択可（最低1つ選択）。', type: 'multi', options: ['クリアさ', '地に足がつく感覚', '活力', '深いリラックス', '内なる静けさ'] },
-  { key: 'communication_preference', label: '施術中のコミュニケーション希望', title: 'Q15. 施術中のコミュニケーション希望', desc: '最も近いものを1つ選択してください。', type: 'single', options: ['完全に静かに過ごしたい', 'やさしいガイダンスが欲しい', '時々の確認だけしてほしい'] },
-  { key: 'allergies_text', label: 'アレルギー', title: 'Q16. アレルギー', desc: 'ない場合も「なし」とご記入ください。', type: 'text', placeholder: '例：ゴマ、ナッツ、香料 など / なし' },
-  { key: 'medical_history_text', label: '既往歴・注意点', title: 'Q17. 既往歴・体調面での注意点', desc: 'ない場合も「なし」とご記入ください。', type: 'text', placeholder: '例：高血圧、腰痛、服薬中 など / なし' },
-  { key: 'female_condition', label: '女性の体調（該当者のみ）', title: 'Q18. （該当する方のみ）女性の体調', desc: '該当しない場合は「該当なし」を選択してください。', type: 'single', options: ['生理中', '妊娠の可能性あり', '該当なし'] },
-  { key: '__preview__', label: 'プレビュー', title: '入力内容の確認', desc: '内容に間違いがなければ「送信」。修正する場合は「修正」を押してください。', type: 'preview' }
+  { key: 'last_name', type: 'text' },
+  { key: 'first_name', type: 'text' },
+  { key: 'last_name_kana', type: 'text' },
+  { key: 'first_name_kana', type: 'text' },
+  { key: 'email', type: 'text' },
+  { key: 'vitality_1_10', type: 'number', min: 1, max: 10 },
+  { key: 'digestive_rhythm', type: 'single' },
+  { key: 'sleep_quality', type: 'multi' },
+  { key: 'tension_areas', type: 'multi' },
+  { key: 'skin_condition', type: 'single' },
+  { key: 'mental_state', type: 'single' },
+  { key: 'sensory_sensitivity', type: 'multi_none_exclusive' },
+  { key: 'let_go_text', type: 'text' },
+  { key: 'invite_in', type: 'multi' },
+  { key: 'communication_preference', type: 'single' },
+  { key: 'allergies_text', type: 'text' },
+  { key: 'medical_history_text', type: 'text' },
+  { key: 'female_condition', type: 'single' },
+  { key: '__preview__', type: 'preview' },
 ]
 
+// Server-side mapping functions (always map to English for backend)
 const mapDigestive = (v: string) => ({ '重い': 'Heavy', '不規則': 'Irregular', '鋭い': 'Sharp', '安定': 'Stable' }[v] || v || '')
 const mapSleep = (v: string) => ({
   '寝つきが悪い': 'Difficulty falling asleep',
@@ -52,19 +53,14 @@ const mapSleep = (v: string) => ({
   'よく眠れた': 'Restful'
 }[v] || v || '')
 const mapTension = (v: string) => ({
-  '首': 'Neck',
-  '肩': 'Shoulders',
-  '腰（下背部）': 'Lower Back',
-  'あご': 'Jaw',
-  '目': 'Eyes',
-  '股関節': 'Hips',
-  'その他': 'Other'
+  '首': 'Neck', '肩': 'Shoulders', '腰（下背部）': 'Lower Back',
+  'あご': 'Jaw', '目': 'Eyes', '股関節': 'Hips', 'その他': 'Other'
 }[v] || v || '')
 const mapSkin = (v: string) => ({ '乾燥': 'Dry', '熱っぽい／敏感': 'Warm/Sensitive', '脂っぽい': 'Oily', 'バランス良い': 'Balanced' }[v] || v || '')
 const mapMental = (v: string) => ({
-  '風（Vata）— 落ち着かない／不安': 'Wind (Vata) – Restless/Anxious',
-  '火（Pitta）— 集中／イライラ': 'Fire (Pitta) – Focused/Irritable',
-  '霧（Kapha）— 重い／やる気が出ない': 'Mist (Kapha) – Heavy/Low Motivation'
+  '風（Vata）\u2014 落ち着かない／不安': 'Wind (Vata) \u2013 Restless/Anxious',
+  '火（Pitta）\u2014 集中／イライラ': 'Fire (Pitta) \u2013 Focused/Irritable',
+  '霧（Kapha）\u2014 重い／やる気が出ない': 'Mist (Kapha) \u2013 Heavy/Low Motivation'
 }[v] || v || '')
 const mapSensory = (v: string) => ({ '音': 'Sound', '光': 'Light', '温度': 'Temperature', '圧の強さ（タッチ）': 'Touch Pressure', '特になし': 'None' }[v] || v || '')
 const mapInvite = (v: string) => ({ 'クリアさ': 'Clarity', '地に足がつく感覚': 'Grounded', '活力': 'Vitality', '深いリラックス': 'Deep Relaxation', '内なる静けさ': 'Inner Silence' }[v] || v || '')
@@ -75,7 +71,14 @@ const mapComm = (v: string) => ({
 }[v] || v || '')
 const mapFemale = (v: string) => ({ '生理中': 'Menstruating', '妊娠の可能性あり': 'Possible Pregnancy', '該当なし': 'None' }[v] || v || '')
 
+// "None" equivalent per language (for multi_none_exclusive logic)
+const NONE_VALUES: Record<Lang, string> = { ja: '特になし', en: 'None', zh: '無' }
+
 const App: React.FC = () => {
+  const [lang] = useState<Lang>(detectLang)
+  const t = useMemo(() => getTranslations(lang), [lang])
+  const reverseMap = useMemo(() => buildOptionReverseMap(lang), [lang])
+
   const [stepIndex, setStepIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [error, setError] = useState('')
@@ -83,22 +86,34 @@ const App: React.FC = () => {
   const [submitting, setSubmitting] = useState(false)
 
   const current = steps[stepIndex]
+  const currentStepT = t.steps[current.key] || { label: '', title: '', desc: '' }
   const totalQuestions = steps.length - 1
   const isPreview = current.type === 'preview'
   const currentQ = isPreview ? totalQuestions : stepIndex + 1
 
   const progress = Math.round((currentQ / totalQuestions) * 100)
 
-  const nextLabel = useMemo(() => {
-    if (isPreview) return '送信'
-    if (stepIndex === steps.length - 2) return '確認へ'
-    return '次へ'
-  }, [isPreview, stepIndex])
+  const noneValue = NONE_VALUES[lang]
 
-  const backLabel = isPreview ? '修正' : '戻る'
+  const nextLabel = useMemo(() => {
+    if (isPreview) return t.submit
+    if (stepIndex === steps.length - 2) return t.toConfirm
+    return t.next
+  }, [isPreview, stepIndex, t])
+
+  const backLabel = isPreview ? t.edit : t.back
 
   const setAnswer = (key: string, value: any) => {
     setAnswers(prev => ({ ...prev, [key]: value }))
+  }
+
+  // --- Helpers for template strings ---
+  const fmt = (template: string, vars: Record<string, string | number>) => {
+    let result = template
+    for (const [k, v] of Object.entries(vars)) {
+      result = result.replace(`{${k}}`, String(v))
+    }
+    return result
   }
 
   const validateAndSave = () => {
@@ -109,36 +124,36 @@ const App: React.FC = () => {
 
     if (s.type === 'number') {
       const n = Number(val)
-      if (!Number.isFinite(n)) return setErrorAnd(false, '数字を入力してください。')
-      if (n < (s.min ?? 1) || n > (s.max ?? 10)) return setErrorAnd(false, `${s.min}〜${s.max}の範囲で入力してください。`)
+      if (!Number.isFinite(n)) return setErrorAnd(false, t.enterNumber)
+      if (n < (s.min ?? 1) || n > (s.max ?? 10)) return setErrorAnd(false, fmt(t.rangeError, { min: s.min ?? 1, max: s.max ?? 10 }))
       return true
     }
 
     if (s.type === 'text') {
-      if (!val || !String(val).trim()) return setErrorAnd(false, '入力してください。')
+      if (!val || !String(val).trim()) return setErrorAnd(false, t.required)
       if (s.key === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(val))) {
-        return setErrorAnd(false, 'メールアドレスの形式を確認してください。')
+        return setErrorAnd(false, t.emailFormat)
       }
       return true
     }
 
     if (s.type === 'single') {
-      if (!val) return setErrorAnd(false, 'いずれか1つを選択してください。')
+      if (!val) return setErrorAnd(false, t.selectOne)
       return true
     }
 
     if (s.type === 'multi') {
-      if (!Array.isArray(val) || val.length === 0) return setErrorAnd(false, '最低1つは選択してください。')
+      if (!Array.isArray(val) || val.length === 0) return setErrorAnd(false, t.selectAtLeastOne)
       return true
     }
 
     if (s.type === 'multi_none_exclusive') {
-      if (!Array.isArray(val) || val.length === 0) return setErrorAnd(false, '最低1つは選択してください。')
-      if (val.includes('特になし') && val.length > 1) return setErrorAnd(false, '「特になし」を選ぶ場合は、それ単独で選択してください。')
+      if (!Array.isArray(val) || val.length === 0) return setErrorAnd(false, t.selectAtLeastOne)
+      if (val.includes(noneValue) && val.length > 1) return setErrorAnd(false, t.noneExclusive)
       return true
     }
 
-    return setErrorAnd(false, '入力内容を確認してください。')
+    return setErrorAnd(false, t.checkInput)
   }
 
   const setErrorAnd = (value: boolean, message: string) => {
@@ -170,9 +185,22 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  /**
+   * Convert a localized option value to its Japanese equivalent for the backend.
+   * For 'ja' this is a no-op.
+   */
+  const toJa = (stepKey: string, value: string): string => {
+    if (lang === 'ja') return value
+    return reverseMap[stepKey]?.[value] || value
+  }
+  const toJaArray = (stepKey: string, values: string[]): string[] => {
+    return values.map(v => toJa(stepKey, v))
+  }
+
   const submitAll = async () => {
     setSubmitting(true)
 
+    // Convert all answers to Japanese for backend compatibility
     const payload = {
       last_name: answers.last_name,
       first_name: answers.first_name,
@@ -180,18 +208,18 @@ const App: React.FC = () => {
       first_name_kana: answers.first_name_kana,
       email: answers.email,
       vitality_1_10: answers.vitality_1_10,
-      digestive_rhythm: mapDigestive(answers.digestive_rhythm),
-      sleep_quality: (answers.sleep_quality || []).map(mapSleep),
-      tension_areas: (answers.tension_areas || []).map(mapTension),
-      skin_condition: mapSkin(answers.skin_condition),
-      mental_state: mapMental(answers.mental_state),
-      sensory_sensitivity: (answers.sensory_sensitivity || []).map(mapSensory),
+      digestive_rhythm: mapDigestive(toJa('digestive_rhythm', answers.digestive_rhythm)),
+      sleep_quality: toJaArray('sleep_quality', answers.sleep_quality || []).map(mapSleep),
+      tension_areas: toJaArray('tension_areas', answers.tension_areas || []).map(mapTension),
+      skin_condition: mapSkin(toJa('skin_condition', answers.skin_condition)),
+      mental_state: mapMental(toJa('mental_state', answers.mental_state)),
+      sensory_sensitivity: toJaArray('sensory_sensitivity', answers.sensory_sensitivity || []).map(mapSensory),
       let_go_text: answers.let_go_text,
-      invite_in: (answers.invite_in || []).map(mapInvite),
-      communication_preference: mapComm(answers.communication_preference),
+      invite_in: toJaArray('invite_in', answers.invite_in || []).map(mapInvite),
+      communication_preference: mapComm(toJa('communication_preference', answers.communication_preference)),
       allergies_text: answers.allergies_text,
       medical_history_text: answers.medical_history_text,
-      female_condition: mapFemale(answers.female_condition)
+      female_condition: mapFemale(toJa('female_condition', answers.female_condition)),
     }
 
     try {
@@ -202,11 +230,11 @@ const App: React.FC = () => {
       })
       const json = await res.json()
       if (!res.ok || !json.ok) {
-        throw new Error(json.error || '送信に失敗しました')
+        throw new Error(json.error || t.submitFail.replace('{error}', ''))
       }
-      setSuccess(`送信が完了しました。受付番号：${json.submission_id || ''}`)
+      setSuccess(fmt(t.submitSuccess, { id: json.submission_id || '' }))
     } catch (e: any) {
-      setError(`送信に失敗しました: ${e.message || e}`)
+      setError(fmt(t.submitFail, { error: e.message || String(e) }))
     } finally {
       setSubmitting(false)
     }
@@ -216,12 +244,15 @@ const App: React.FC = () => {
     if (current.type === 'preview') {
       return (
         <div>
-          {steps.filter(s => s.type !== 'preview').map(s => (
-            <div className="previewRow" key={s.key}>
-              <div className="previewKey">{s.label}</div>
-              <div className="previewVal">{formatAnswerForPreview(s, answers[s.key]) || '（未入力）'}</div>
-            </div>
-          ))}
+          {steps.filter(s => s.type !== 'preview').map(s => {
+            const sT = t.steps[s.key] || { label: s.key }
+            return (
+              <div className="previewRow" key={s.key}>
+                <div className="previewKey">{sT.label}</div>
+                <div className="previewVal">{formatAnswerForPreview(answers[s.key]) || t.notEntered}</div>
+              </div>
+            )
+          })}
         </div>
       )
     }
@@ -233,7 +264,7 @@ const App: React.FC = () => {
           inputMode="numeric"
           min={current.min}
           max={current.max}
-          placeholder={current.placeholder}
+          placeholder={currentStepT.placeholder}
           value={answers[current.key] ?? ''}
           onChange={e => setAnswer(current.key, e.target.value)}
         />
@@ -243,7 +274,7 @@ const App: React.FC = () => {
     if (current.type === 'text') {
       return (
         <textarea
-          placeholder={current.placeholder}
+          placeholder={currentStepT.placeholder}
           value={answers[current.key] ?? ''}
           onChange={e => setAnswer(current.key, e.target.value)}
         />
@@ -251,9 +282,10 @@ const App: React.FC = () => {
     }
 
     if (current.type === 'single') {
+      const options = currentStepT.options || []
       return (
         <div className="options">
-          {current.options?.map(opt => (
+          {options.map(opt => (
             <label
               className={['opt', answers[current.key] === opt ? 'selected' : ''].join(' ')}
               key={opt}
@@ -273,10 +305,11 @@ const App: React.FC = () => {
     }
 
     if (current.type === 'multi' || current.type === 'multi_none_exclusive') {
+      const options = currentStepT.options || []
       const arr: string[] = Array.isArray(answers[current.key]) ? (answers[current.key] as string[]) : []
       return (
         <div className="options">
-          {current.options?.map(opt => {
+          {options.map(opt => {
             const checked = arr.includes(opt)
             return (
               <label
@@ -289,9 +322,9 @@ const App: React.FC = () => {
                   checked={checked}
                   onChange={e => {
                     if (e.target.checked) {
-                      const next = current.type === 'multi_none_exclusive' && opt === '特になし'
-                        ? ['特になし']
-                        : [...arr.filter((v: string) => v !== '特になし'), opt]
+                      const next = current.type === 'multi_none_exclusive' && opt === noneValue
+                        ? [noneValue]
+                        : [...arr.filter((v: string) => v !== noneValue), opt]
                       setAnswer(current.key, Array.from(new Set(next)))
                     } else {
                       setAnswer(current.key, arr.filter((v: string) => v !== opt))
@@ -306,25 +339,28 @@ const App: React.FC = () => {
       )
     }
 
-    return <div>未対応の入力タイプです。</div>
+    return <div>{t.checkInput}</div>
   }
 
   return (
     <div className="wrap">
       <div className="card">
-        <div className="title">アーユルヴェーダ セッション確認シート</div>
-        <div className="sub">ご回答は施術準備のために使用します。必要に応じてAIで翻訳して担当者が確認します。</div>
+        <div className="title">{t.pageTitle}</div>
+        <div className="sub">{t.pageSubtitle}</div>
 
         <div className="progressWrap">
           <div className="progressMeta">
-            <div>{isPreview ? `確認 / ${totalQuestions}` : `質問 ${currentQ} / ${totalQuestions}`}</div>
-            <div>{isPreview ? '残り 0' : `残り ${totalQuestions - currentQ}`}</div>
+            <div>{isPreview
+              ? fmt(t.confirmOf, { total: totalQuestions })
+              : fmt(t.questionOf, { current: currentQ, total: totalQuestions })
+            }</div>
+            <div>{isPreview ? t.remainingZero : fmt(t.remaining, { n: totalQuestions - currentQ })}</div>
           </div>
           <div className="bar"><div style={{ width: `${progress}%` }} /></div>
         </div>
 
-        <div className="qTitle">{current.title}</div>
-        <div className="qDesc">{current.desc || ''}</div>
+        <div className="qTitle">{isPreview ? t.steps.__preview__?.title || currentStepT.title : currentStepT.title}</div>
+        <div className="qDesc">{isPreview ? t.steps.__preview__?.desc || currentStepT.desc : currentStepT.desc}</div>
         {renderInput()}
 
         {error && <div className="error">{error}</div>}
@@ -332,18 +368,20 @@ const App: React.FC = () => {
 
         <div className="nav">
           <button className="btn" onClick={goBack} disabled={stepIndex === 0 || submitting}>{backLabel}</button>
-          <button className="btn btnPrimary" onClick={goNext} disabled={submitting}>{nextLabel}</button>
+          <button className="btn btnPrimary" onClick={goNext} disabled={submitting}>
+            {submitting ? t.submitting : nextLabel}
+          </button>
         </div>
 
-        <div className="footerNote">※安全確認のため、アレルギー・既往歴の項目はできる範囲で詳しくご記入ください。</div>
+        <div className="footerNote">{t.footerNote}</div>
       </div>
     </div>
   )
 }
 
-function formatAnswerForPreview(step: Step, value: any) {
+function formatAnswerForPreview(value: any) {
   if (value === undefined || value === null) return ''
-  if (Array.isArray(value)) return value.join('、')
+  if (Array.isArray(value)) return value.join(', ')
   return String(value)
 }
 
