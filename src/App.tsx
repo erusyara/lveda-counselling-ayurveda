@@ -74,13 +74,39 @@ const mapFemale = (v: string) => ({ '生理中': 'Menstruating', '妊娠の可�
 // "None" equivalent per language (for multi_none_exclusive logic)
 const NONE_VALUES: Record<Lang, string> = { ja: '特になし', en: 'None', zh: '無' }
 
+// ----- URL parameter prefill (GAS reservation integration) ----
+const PREFILL_KEYS = ['last_name', 'first_name', 'last_name_kana', 'first_name_kana', 'email'] as const
+const RESERVATION_META_KEYS = [
+  'reservation_media', 'reservation_id', 'reservation_at', 'reservation_staff',
+  'campaign', 'source',
+] as const
+
+function readUrlPrefill(): { answers: Record<string, string>; meta: Record<string, string> } {
+  const params = new URLSearchParams(window.location.search)
+  const answers: Record<string, string> = {}
+  const meta: Record<string, string> = {}
+  for (const key of PREFILL_KEYS) {
+    const v = params.get(key)
+    if (v) answers[key] = v
+  }
+  for (const key of RESERVATION_META_KEYS) {
+    const v = params.get(key)
+    if (v) meta[key] = v
+  }
+  return { answers, meta }
+}
+
 const App: React.FC = () => {
   const [lang] = useState<Lang>(detectLang)
   const t = useMemo(() => getTranslations(lang), [lang])
   const reverseMap = useMemo(() => buildOptionReverseMap(lang), [lang])
 
+  // Read URL prefill once on mount
+  const prefill = useMemo(() => readUrlPrefill(), [])
+
   const [stepIndex, setStepIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, any>>({})
+  const [answers, setAnswers] = useState<Record<string, any>>(prefill.answers)
+  const [reservationMeta] = useState<Record<string, string>>(prefill.meta)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -220,6 +246,7 @@ const App: React.FC = () => {
       allergies_text: answers.allergies_text,
       medical_history_text: answers.medical_history_text,
       female_condition: mapFemale(toJa('female_condition', answers.female_condition)),
+      ...(Object.keys(reservationMeta).length > 0 ? { _reservation: reservationMeta } : {}),
     }
 
     try {
